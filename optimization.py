@@ -3,9 +3,24 @@ import oracles
 
 
 def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback):
+    class OmegaOracle(oracles.BaseOracle):
+        def __init__(self, f, x):
+            self.f_val = f.func(x)
+            self.f_grad = f.grad(x)
+            self.x = x
+
+        def func(self, y):
+            return self.f_val + np.dot(self.f_grad, (y - self.x))
+
+        def grad(self, y):
+            return self.f_grad
+
+        def metrics(self):
+            return {}
+
     class SubproblemOracle(oracles.BaseOracle):
         def __init__(self, f, g, x_, H):
-            self.omega = oracles.OmegaOracle(f, x_)
+            self.omega = OmegaOracle(f, x_)
             self.g = g
             self.x_ = x_.copy()
             self.H = H

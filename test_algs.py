@@ -36,8 +36,30 @@ def test_metaalg(a, ak, b, bk, x_0, y_0):
     print('ok')
 
 
+def test_saddle():
+    f = oracles.PowerOracle(2, 1)
+    G = oracles.MultiplyOracle(1)
+    h = oracles.PowerOracle(2, -1)
+    x_0 = np.array([10, 7])
+    y_0 = np.array([8, 9])
+    def stop_callback(x): return False
+    x, stats = optimization.SolveSaddle(x_0, y_0, f, G, h,
+                                        {'H': 3, 'K': 25,
+                                         'stop_callback': stop_callback},
+                                        {'Li': np.array([3, 3]), 'S': np.array(
+                                            [3, 3]), 'K': 25},
+                                        {'H': 3, 'K': 25,
+                                         'stop_callback': stop_callback},
+                                        {'Li': np.array([3, 3]), 'S': np.array([3, 3]), 'K': 25})
+    print('saddle:', x)
+    assert np.sum(x ** 2) < 1
+    print('ok')
+
+
 test_nesterov(2, 1, np.array([500, 700]))
 test_nesterov(2, 10, np.array([500, -700]))
 
 test_metaalg(2, 1, 2, 1, np.array([500, 700]), np.array([-500, 700]))
 test_metaalg(2, 10, 2, 3, np.array([500, -700]), np.array([-500, -700]))
+
+test_saddle()

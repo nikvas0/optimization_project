@@ -86,7 +86,7 @@ class MinusOracle(BaseOracle):
         self.f = f
 
     def func(self, x):
-        return self.f.func(x)
+        return -self.f.func(x)
 
     def grad(self, x):
         return -self.f.grad(x)
@@ -107,23 +107,6 @@ class FixedXOracle(BaseOracle):
         return self.saddle.grad_y(self.x, y)
 
 
-class OmegaOracle(BaseOracle):
-
-    def __init__(self, f, x):
-        self.f_val = f.func(x)
-        self.f_grad = f.grad(x)
-        self.x = x
-
-    def func(self, y):
-        return self.f_val + np.dot(self.f_grad, (y - self.x))
-
-    def grad(self, y):
-        return self.f_grad
-
-    def metrics(self):
-        return {}
-
-
 class PowerOracle(BaseOracle):
     def __init__(self, p, k):
         self.p = p
@@ -141,6 +124,27 @@ class PowerOracle(BaseOracle):
     def grad_stoh(self, x, i):
         self.stat['g_calls'] += 1
         return self.k * self.p * (x[i] ** (self.p - 1))
+
+    def metrics(self):
+        return self.stat
+
+
+class MultiplyOracle(BaseSaddleOracle):
+    def __init__(self, k):
+        self.k = k
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x, y):
+        self.stat['f_calls'] += 1
+        return np.dot(x, y)
+
+    def grad_x(self, x, y):
+        self.stat['g_calls'] += 1
+        return y
+
+    def grad_y(self, x, y):
+        self.stat['g_calls'] += 1
+        return x
 
     def metrics(self):
         return self.stat
