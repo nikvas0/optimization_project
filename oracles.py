@@ -136,15 +136,15 @@ class MultiplyOracle(BaseSaddleOracle):
 
     def func(self, x, y):
         self.stat['f_calls'] += 1
-        return np.dot(x, y)
+        return self.k * np.dot(x, y)
 
     def grad_x(self, x, y):
         self.stat['g_calls'] += 1
-        return y
+        return self.k * y
 
     def grad_y(self, x, y):
         self.stat['g_calls'] += 1
-        return x
+        return self.k * x
 
     def metrics(self):
         return self.stat
