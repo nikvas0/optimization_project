@@ -41,8 +41,9 @@ def computeLMu(matrix):
     return np.max(w), np.min(w)
 
 
-def checkEigenValues(L, mu, eigen_min, eigen_max):
+def checkEigenValues(matrix, eigen_min, eigen_max):
     EPS = 1e-9
+    L, mu = computeLMu(matrix)
     assert np.abs(mu - eigen_min) < EPS
     assert np.abs(L - eigen_max) < EPS
 
@@ -53,5 +54,4 @@ def generateQuadraticFormExperiment(dx, dy, exp, seed):
 
 
 def generateEntropyQuadraticExperiment(dx, dy, seed):
-    data = ExperimentData()
-    return data
+    pass
