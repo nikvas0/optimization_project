@@ -132,12 +132,13 @@ class CompositeMaxOracle(oracles.BaseOracle):
         self.alg_stats = []
 
     def optimal_y(self, x):
-        y, stats = AcceleratedMetaalgorithmSolver(
-            self.y_0, oracles.FixedXOracle(
-                self.G, x), oracles.MinusOracle(self.h),
+        y, stats = AcceleratedMetaalgorithmSolver(  # alg searches for min, so we use it for -G_x(y) + h(y)
+            self.y_0, oracles.KOracle(
+                oracles.FixedXOracle(self.G, x), -1), self.h,
             self.H, self.K, self.subproblemCallback,
             self.stopCallback)
         self.alg_stats.append(stats)
+        # self.y_0 = y  # use y from prev run
         return y
 
     def func(self, x):

@@ -81,15 +81,16 @@ class BaseSaddleOracle:
         raise NotImplementedError('Metrics oracle is not implemented.')
 
 
-class MinusOracle(BaseOracle):
-    def __init__(self, f):
+class KOracle(BaseOracle):
+    def __init__(self, f, k):
         self.f = f
+        self.k = k
 
     def func(self, x):
-        return -self.f.func(x)
+        return self.k * self.f.func(x)
 
     def grad(self, x):
-        return -self.f.grad(x)
+        return self.k * self.f.grad(x)
 
     def metrics(self):
         return self.f.metrics()
@@ -145,6 +146,46 @@ class MultiplyOracle(BaseSaddleOracle):
     def grad_y(self, x, y):
         self.stat['g_calls'] += 1
         return self.k * x
+
+    def metrics(self):
+        return self.stat
+
+
+# oracles for experiments
+
+class MultiplySaddleOracle(BaseSaddleOracle):
+    def __init__(self, A):
+        self.A = A
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x, y):
+        self.stat['f_calls'] += 1
+        return np.dot(np.dot(self.A, y), x)
+
+    def grad_x(self, x, y):
+        self.stat['g_calls'] += 1
+        return np.dot(self.A, y)
+
+    def grad_y(self, x, y):
+        self.stat['g_calls'] += 1
+        return np.dot(x.T, self.A).T
+
+    def metrics(self):
+        return self.stat
+
+
+class QuadraticFormOracle(BaseOracle):
+    def __init__(self, A):
+        self.A = A
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        return np.dot(np.dot(self.A, x), x)
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+        return np.dot(self.A, x)
 
     def metrics(self):
         return self.stat
