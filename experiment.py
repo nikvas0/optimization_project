@@ -27,13 +27,15 @@ class ExperimentParams:
         }
 
 
-def generateRandomGMatrix(n, m, low, high, seed):
-    np.random.seed(seed)
+def generateRandomGMatrix(n, m, low, high, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
     return np.matrix(np.random.random(size=(n, m)) * (high - low) + low)
 
 
-def generateRandomMatrix(n, eigen_min, eigen_max, seed):
-    np.random.seed(seed)
+def generateRandomMatrix(n, eigen_min, eigen_max, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
     eigen_vals = [eigen_min, eigen_max]
     rand = np.random.random(size=n - 2) * (eigen_max - eigen_min) + eigen_min
 
@@ -53,7 +55,7 @@ def computeLG(matrix):
     # print(z.shape)
     z[n:, :m] = (matrix / 2).T
     z[:n, m:] = matrix / 2
-    w = np.linalg.eigvals(z)
+    w = np.linalg.eigvals(2 * z)
     # for i in range(n + m):
     #    for j in range(n + m):
     #        print(z[i, j], end='\t')
@@ -63,9 +65,7 @@ def computeLG(matrix):
 
 
 def quadraticFormFromHess(A):
-    res = A.copy()
-    res[np.diag_indices_from(res)] /= 2
-    return res
+    return A / 2
 
 
 def computeMaxMinEigen(matrix):
@@ -80,16 +80,14 @@ def checkEigenValues(matrix, eigen_min, eigen_max):
     assert np.abs(L - eigen_max) < EPS
 
 
-def generateRandomFHMatrix(n, eigen_min, eigen_max, seed):
+def generateRandomFHMatrix(n, eigen_min, eigen_max, seed=None):
     A = generateRandomMatrix(n, eigen_min, eigen_max, seed)
     checkEigenValues(A, eigen_min, eigen_max)
     return quadraticFormFromHess(A)
 
 
 def computeLMu(A):
-    B = A.copy()
-    B[np.diag_indices_from(B)] *= 2
-    return computeMaxMinEigen(B)
+    return computeMaxMinEigen(2 * A)
 
 
 def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
@@ -105,21 +103,27 @@ def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
     return params
 
 
-def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed):
+def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
     G_m = generateRandomGMatrix(
-        dx, dy, G_params['min'], G_params['max'], seed + 100)
-    f_m = generateRandomFHMatrix(dx, f_params['mu'], f_params['L'], seed + 200)
-    h_m = generateRandomFHMatrix(dx, h_params['mu'], h_params['L'], seed + 300)
+        dx, dy, G_params['min'], G_params['max'])
+    f_m = generateRandomFHMatrix(dx, f_params['mu'], f_params['L'])
+    h_m = generateRandomFHMatrix(dy, h_params['mu'], h_params['L'])
 
     exp = calculateQuadraticFormExperimentParams(f_m, G_m, h_m)
 
     return exp, f_m, G_m, h_m
 
 
-def runSaddleExperiment(experiment, settings):
-    _, stats = optimization.SolveSaddle(
+def runSaddleExperiment(experiment, settings, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
+    y, stats = optimization.SolveSaddle(
         settings['x_0'], settings['y_0'],
         experiment.f, experiment.G, experiment.h,
         settings['out'], settings['out_nesterov'],
         settings['in'], settings['in_nesterov'])
-    return stats
+    return y, stats

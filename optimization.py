@@ -15,6 +15,9 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         def grad(self, y):
             return self.f_grad
 
+        def grad_stoh(self, y, i):
+            return self.f_grad[i]
+
         def metrics(self):
             return {}
 
@@ -36,7 +39,11 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
             self.g_calls += 1
             return self.omega.grad(y) + self.g.grad(y) + self.H * (y - self.x_)
 
-        def metrics(self, ):
+        def grad_stoh(self, y, i):
+            self.g_calls += 1
+            return self.omega.grad_stoh(y, i) + self.g.grad_stoh(y, i) + self.H * (y[i] - self.x_[i])
+
+        def metrics(self):
             return {'func_call': self.f_calls, 'grad_calls': self.g_calls}
 
     stats = {
@@ -63,7 +70,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         stats['ys'].append(y)
         stats['in_stats'].append(in_stats)
 
-        if stopCallback(y):
+        if stopCallback is not None and stopCallback(y):
             return y, stats
 
     return y, stats
@@ -87,6 +94,10 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
     S = settings['S']
     S_sm = S.sum()
     K = settings['K']
+
+    stop_callback = None
+    if 'stop_callback' in settings:
+        stop_callback = settings['stop_callback']
 
     stats = {
         'iters': 0,
@@ -113,6 +124,9 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
 
         stats['xs'].append(x)
 
+        if stop_callback is not None and stop_callback(x):
+            return x, stats
+
     stats['iters'] = K
     return x, stats
 
@@ -133,8 +147,8 @@ class CompositeMaxOracle(oracles.BaseOracle):
 
     def optimal_y(self, x):
         y, stats = AcceleratedMetaalgorithmSolver(  # alg searches for min, so we use it for -G_x(y) + h(y)
-            self.y_0, oracles.KOracle(
-                oracles.FixedXOracle(self.G, x), -1), self.h,
+            self.y_0, self.h, oracles.KOracle(
+                oracles.FixedXOracle(self.G, x), -1),
             self.H, self.K, self.subproblemCallback,
             self.stopCallback)
         self.alg_stats.append(stats)
@@ -149,8 +163,12 @@ class CompositeMaxOracle(oracles.BaseOracle):
         self.g_calls += 1
         return self.G.grad_x(x, self.optimal_y(x))
 
+    def grad_stoh(self, x, i):
+        self.g_calls += 1
+        return self.G.grad_x_stoh(x, self.optimal_y(x), i)
+
     def metrics(self):
-        return {'func_call': self.f_calls, 'grad_calls': self.g_calls, 'alg': self.alg_stats}
+        return {'func_calls': self.f_calls, 'grad_calls': self.g_calls, 'alg': self.alg_stats}
 
 
 def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_settings, in_nesterov_settings):
@@ -168,12 +186,14 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
             y_0, oracle, in_nesterov_settings),
         in_settings['stop_callback'])
 
-    res, stats = AcceleratedMetaalgorithmSolver(
+    x, stats = AcceleratedMetaalgorithmSolver(
         x_0, f, g, out_settings['H'], out_settings['K'],
         lambda oracle: NesterovAcceleratedSolver(
             y_0, oracle, out_nesterov_settings),
         out_settings['stop_callback'])
-    return res, {'out_stats': stats, 'in_stats': g.metrics()['alg']}
+
+    return x, {'out_stats': stats, 'in_stats': g.metrics()['alg'], 'g':
+               {'func': g.metrics()['func_calls'], 'grad': g.metrics()['grad_calls']}}
 
 
 def SolveSaddleCatalist():

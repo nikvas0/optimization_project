@@ -31,7 +31,7 @@ class BaseOracle:
         :param x: point for computation
         :return: gradient[i]
         """
-        return self.grad(x)[i]
+        raise NotImplementedError('Grad stoh oracle is not implemented.')
 
     def metrics(self):
         """
@@ -73,6 +73,22 @@ class BaseSaddleOracle:
         """
         raise NotImplementedError('Grad oracle is not implemented.')
 
+    def grad_y_stoh(self, x, y, i):
+        """
+        Computes the grad[i] at point x, y.
+        :param x, y: point for computation
+        :return: gradient
+        """
+        raise NotImplementedError('Grad oracle is not implemented.')
+
+    def grad_x_stoh(self, x, y, i):
+        """
+        Computes the grad[i] at point x, y.
+        :param x, y: point for computation
+        :return: gradient
+        """
+        raise NotImplementedError('Grad oracle is not implemented.')
+
     def metrics(self):
         """
         Get metrics
@@ -92,6 +108,9 @@ class KOracle(BaseOracle):
     def grad(self, x):
         return self.k * self.f.grad(x)
 
+    def grad_stoh(self, x, i):
+        return self.k * self.f.grad_stoh(x, i)
+
     def metrics(self):
         return self.f.metrics()
 
@@ -106,6 +125,9 @@ class FixedXOracle(BaseOracle):
 
     def grad(self, y):
         return self.saddle.grad_y(self.x, y)
+
+    def grad_stoh(self, y, i):
+        return self.saddle.grad_y_stoh(self.x, y, i)
 
 
 class PowerOracle(BaseOracle):
@@ -143,9 +165,17 @@ class MultiplyOracle(BaseSaddleOracle):
         self.stat['g_calls'] += 1
         return self.k * y
 
+    def grad_x_stoh(self, x, y, i):
+        self.stat['g_calls'] += 1
+        return self.k * y[i]
+
     def grad_y(self, x, y):
         self.stat['g_calls'] += 1
         return self.k * x
+
+    def grad_y_stoh(self, x, y, i):
+        self.stat['g_calls'] += 1
+        return self.k * x[i]
 
     def metrics(self):
         return self.stat
@@ -155,20 +185,32 @@ class MultiplyOracle(BaseSaddleOracle):
 
 class MultiplySaddleOracle(BaseSaddleOracle):
     def __init__(self, A):
-        self.A = A
-        self.stat = {'f_calls': 0, 'g_calls': 0}
+        self.A = np.array(A)
+        self.stat = {'f_calls': 0, 'g_calls_x': 0, 'g_calls_y': 0}
 
     def func(self, x, y):
         self.stat['f_calls'] += 1
         return np.dot(np.dot(self.A, y), x)
 
     def grad_x(self, x, y):
-        self.stat['g_calls'] += 1
+        self.stat['g_calls_x'] += 1
         return np.dot(self.A, y)
 
+    def grad_x_stoh(self, x, y, i):
+        #self.stat['g_calls_y'] += 1
+        return self.grad_x(x, y)[i]
+
     def grad_y(self, x, y):
-        self.stat['g_calls'] += 1
-        return np.dot(x.T, self.A).T
+        self.stat['g_calls_y'] += 1
+        #print(self.A, x, y)
+        #print(self.A.shape, x.shape, y.shape)
+        #print(type(self.A), type(x), type(y))
+        #print('sd', np.dot(x, self.A), np.dot(x, self.A).shape)
+        return np.dot(x, self.A)
+
+    def grad_y_stoh(self, x, y, i):
+        #self.stat['g_calls_y'] += 1
+        return self.grad_y(x, y)[i]
 
     def metrics(self):
         return self.stat
@@ -176,16 +218,20 @@ class MultiplySaddleOracle(BaseSaddleOracle):
 
 class QuadraticFormOracle(BaseOracle):
     def __init__(self, A):
-        self.A = A
+        self.A = np.array(A)
         self.stat = {'f_calls': 0, 'g_calls': 0}
 
     def func(self, x):
         self.stat['f_calls'] += 1
-        return np.dot(np.dot(self.A, x), x)
+        return np.dot(np.dot(x, self.A), x)
 
     def grad(self, x):
         self.stat['g_calls'] += 1
-        return np.dot(self.A, x)
+        return 2 * np.dot(self.A, x)
+
+    def grad_stoh(self, x, i):
+        #self.stat['g_calls'] += 1
+        return self.grad(x)[i]
 
     def metrics(self):
         return self.stat
