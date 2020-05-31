@@ -5,11 +5,11 @@ from scipy.stats import ortho_group
 
 class ExperimentData:
     def __init__(self):
-        self.g = None
+        self.f = None
         self.G = None
         self.h = None
 
-        self.L_g = None
+        self.L_f = None
         self.L_G = None
         self.L_h = None
 
@@ -36,22 +36,60 @@ def generateRandomMatrix(n, eigen_min, eigen_max, seed):
     return np.dot(np.dot(o.T, d), o)
 
 
-def computeLMu(matrix):
+def computeLG(matrix):
+    n, m = matrix.shape[0], matrix.shape[1]
+    #print(n, m)
+    z = np.zeros(shape=(n + m, n + m))
+    # print(z.shape)
+    z[n:, :m] = (matrix / 2).T
+    z[:n, m:] = matrix / 2
+    w = np.linalg.eigvals(z)
+    # for i in range(n + m):
+    #    for j in range(n + m):
+    #        print(z[i, j], end='\t')
+    #    print()
+    # print(w)
+    return np.max(w)
+
+
+def quadraticFormFromHess(A):
+    res = A.copy()
+    res[np.diag_indices_from(res)] /= 2
+    return res
+
+
+def computeMaxMinEigen(matrix):
     w = np.linalg.eigvals(matrix)
     return np.max(w), np.min(w)
 
 
 def checkEigenValues(matrix, eigen_min, eigen_max):
     EPS = 1e-9
-    L, mu = computeLMu(matrix)
+    L, mu = computeMaxMinEigen(matrix)
     assert np.abs(mu - eigen_min) < EPS
     assert np.abs(L - eigen_max) < EPS
 
 
-def generateQuadraticFormExperiment(dx, dy, exp, seed):
+def generateRandomFHMatrix(n, eigen_min, eigen_max, seed):
+    A = generateRandomMatrix(n, eigen_min, eigen_max, seed)
+    checkEigenValues(A, eigen_min, eigen_max)
+    return quadraticFormFromHess(A)
+
+
+def computeLMu(A):
+    B = A.copy()
+    B[np.diag_indices_from(B)] *= 2
+    return computeMaxMinEigen(B)
+
+
+def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
     data = ExperimentData()
+    data.f = oracles.QuadraticFormOracle(f_m)
+    data.G = oracles.MultiplySaddleOracle(G_m)
+    data.h = oracles.QuadraticFormOracle(h_m)
+
+    data.L_f, data.mu_x = computeLMu(f_m)
+    data.L_h, data.mu_y = computeLMu(h_m)
+
+    data.L_G = computeLG(G_m)
     return data
-
-
-def generateEntropyQuadraticExperiment(dx, dy, seed):
-    pass
