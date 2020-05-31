@@ -1,9 +1,10 @@
 import oracles
 import numpy as np
 from scipy.stats import ortho_group
+import optimization
 
 
-class ExperimentData:
+class ExperimentParams:
     def __init__(self):
         self.f = None
         self.G = None
@@ -15,6 +16,15 @@ class ExperimentData:
 
         self.mu_x = None
         self.mu_y = None
+
+    def constants(self):
+        return {
+            'L_f': self.L_f,
+            'L_G': self.L_G,
+            'L_h': self.L_h,
+            'mu_x': self.mu_x,
+            'mu_y': self.mu_y,
+        }
 
 
 def generateRandomGMatrix(n, m, low, high, seed):
@@ -83,13 +93,33 @@ def computeLMu(A):
 
 
 def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
-    data = ExperimentData()
-    data.f = oracles.QuadraticFormOracle(f_m)
-    data.G = oracles.MultiplySaddleOracle(G_m)
-    data.h = oracles.QuadraticFormOracle(h_m)
+    params = ExperimentParams()
+    params.f = oracles.QuadraticFormOracle(f_m)
+    params.G = oracles.MultiplySaddleOracle(G_m)
+    params.h = oracles.QuadraticFormOracle(h_m)
 
-    data.L_f, data.mu_x = computeLMu(f_m)
-    data.L_h, data.mu_y = computeLMu(h_m)
+    params.L_f, params.mu_x = computeLMu(f_m)
+    params.L_h, params.mu_y = computeLMu(h_m)
 
-    data.L_G = computeLG(G_m)
-    return data
+    params.L_G = computeLG(G_m)
+    return params
+
+
+def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed):
+    G_m = generateRandomGMatrix(
+        dx, dy, G_params['min'], G_params['max'], seed + 100)
+    f_m = generateRandomFHMatrix(dx, f_params['mu'], f_params['L'], seed + 200)
+    h_m = generateRandomFHMatrix(dx, h_params['mu'], h_params['L'], seed + 300)
+
+    exp = calculateQuadraticFormExperimentParams(f_m, G_m, h_m)
+
+    return exp, f_m, G_m, h_m
+
+
+def runSaddleExperiment(experiment, settings):
+    _, stats = optimization.SolveSaddle(
+        settings['x_0'], settings['y_0'],
+        experiment.f, experiment.G, experiment.h,
+        settings['out'], settings['out_nesterov'],
+        settings['in'], settings['in_nesterov'])
+    return stats
