@@ -121,9 +121,9 @@ def runSaddleExperiment(experiment, settings, seed=None):
     if seed is not None:
         np.random.seed(seed)
 
-    y, stats = optimization.SolveSaddle(
+    x, y, stats = optimization.SolveSaddle(
         settings['x_0'], settings['y_0'],
         experiment.f, experiment.G, experiment.h,
         settings['out'], settings['out_nesterov'],
         settings['in'], settings['in_nesterov'])
-    return y, stats
+    return x, y, stats

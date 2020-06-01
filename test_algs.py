@@ -21,8 +21,8 @@ def test_metaalg(a, ak, b, bk, x_0, y_0):
 
     y, stats = optimization.AcceleratedMetaalgorithmSolver(
         x_0, f, g, a * ak, 200,
-        lambda oracle: optimization.NesterovAcceleratedSolver(
-            y_0, oracle,
+        lambda y_00, oracle: optimization.NesterovAcceleratedSolver(
+            y_00, oracle,
             {
                 'Li': np.array([3 * b * bk, 3 * b * bk]),
                 'S': np.array([3 * b * bk, 3 * b * bk]),
@@ -42,17 +42,16 @@ def test_saddle():
     h = oracles.PowerOracle(2, 1)
     x_0 = np.array([5, 5])
     y_0 = np.array([1, 1])
-    def stop_callback(x): return False
-    x, stats = optimization.SolveSaddle(x_0, y_0, f, G, h,
-                                        {'H': 20, 'K': 50,
-                                         'stop_callback': stop_callback},
-                                        {'Li': np.array([20, 20]), 'S': np.array(
-                                            [20, 20]), 'K': 10},
-                                        {'H': 20, 'K': 20,
-                                         'stop_callback': stop_callback},
-                                        {'Li': np.array([20, 20]), 'S': np.array([20, 20]), 'K': 10})
-    print('saddle:', x)
-    assert np.sum(x ** 2) < 1
+    x, y, stats = optimization.SolveSaddle(x_0, y_0, f, G, h,
+                                           {'H': 20, 'K': 50,
+                                            'stop_callback': None},
+                                           {'Li': np.array([20, 20]), 'S': np.array(
+                                               [20, 20]), 'K': 10},
+                                           {'H': 20, 'K': 20,
+                                               'stop_callback': None},
+                                           {'Li': np.array([20, 20]), 'S': np.array([20, 20]), 'K': 10})
+    print('saddle:', x, y)
+    assert np.sum(x ** 2 + y**2) < 1e-2
     print('ok')
 
 

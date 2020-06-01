@@ -186,33 +186,31 @@ class MultiplyOracle(BaseSaddleOracle):
 class MultiplySaddleOracle(BaseSaddleOracle):
     def __init__(self, A):
         self.A = np.array(A)
-        self.stat = {'f_calls': 0, 'g_calls_x': 0, 'g_calls_y': 0}
+        self.stat = {'f_calls': 0, 'g_calls': 0,
+                     'g_calls_x': 0, 'g_calls_y': 0}
 
     def func(self, x, y):
         self.stat['f_calls'] += 1
-        return np.dot(np.dot(self.A, y), x)
+        return np.dot(x, np.dot(self.A, y))
 
     def grad_x(self, x, y):
         self.stat['g_calls_x'] += 1
         return np.dot(self.A, y)
 
     def grad_x_stoh(self, x, y, i):
-        #self.stat['g_calls_y'] += 1
-        return self.grad_x(x, y)[i]
+        self.stat['g_calls_x'] += 1
+        return np.dot(self.A[i], y)
 
     def grad_y(self, x, y):
         self.stat['g_calls_y'] += 1
-        #print(self.A, x, y)
-        #print(self.A.shape, x.shape, y.shape)
-        #print(type(self.A), type(x), type(y))
-        #print('sd', np.dot(x, self.A), np.dot(x, self.A).shape)
         return np.dot(x, self.A)
 
     def grad_y_stoh(self, x, y, i):
-        #self.stat['g_calls_y'] += 1
-        return self.grad_y(x, y)[i]
+        self.stat['g_calls_y'] += 1
+        return np.dot(x, self.A[:, i])
 
     def metrics(self):
+        self.stat['g_calls'] = self.stat['g_calls_x'] + self.stat['g_calls_y']
         return self.stat
 
 
@@ -230,8 +228,8 @@ class QuadraticFormOracle(BaseOracle):
         return 2 * np.dot(self.A, x)
 
     def grad_stoh(self, x, i):
-        #self.stat['g_calls'] += 1
-        return self.grad(x)[i]
+        self.stat['g_calls'] += 1
+        return 2 * np.dot(self.A[i], x)
 
     def metrics(self):
         return self.stat

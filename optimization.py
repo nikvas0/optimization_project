@@ -33,7 +33,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
 
         def func(self, y):
             self.f_calls += 1
-            return self.omega.func(y) + self.g.func(y) + (self.H / 2) * ((y - self.x_) ** 2)
+            return self.omega.func(y) + self.g.func(y) + (self.H / 2) * np.sum((y - self.x_) ** 2)
 
         def grad(self, y):
             self.g_calls += 1
@@ -48,8 +48,9 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
 
     stats = {
         'iters': 0,
-        'ys': [x_0],
-        'in_stats': []
+        # 'ys': [x_0],
+        'fs': [f.func(x_0) + g.func(x_0)],
+        'in_iters': []
     }
 
     A = 0
@@ -59,16 +60,19 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         lb = 1 / (2 * H)
         a_new = (lb + np.sqrt(lb**2 + 4 * lb * A)) / 2
         A_new = A + a_new
-        x_ = (A * y + a_new * x) / A_new
+        x_ = (A * y / A_new) + (a_new * x / A_new)
 
-        y_new, in_stats = subproblemCallback(SubproblemOracle(f, g, x_, H))
+        y_new, in_iters = subproblemCallback(x_, SubproblemOracle(f, g, x_, H))
 
         x = x - a_new * f.grad(y_new) - a_new * g.grad(y_new)
         y = y_new
 
         stats['iters'] = i + 1
-        stats['ys'].append(y)
-        stats['in_stats'].append(in_stats)
+        # stats['ys'].append(y)
+        stats['fs'].append(f.func(y) + g.func(y))
+        stats['in_iters'].append(in_iters)
+
+        A = A_new
 
         if stopCallback is not None and stopCallback(y):
             return y, stats
@@ -99,12 +103,12 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
     if 'stop_callback' in settings:
         stop_callback = settings['stop_callback']
 
-    stats = {
-        'iters': 0,
-        'xs': []
-    }
+    # stats = {
+    #    'iters': 0,
+    #    'xs': []
+    # }
 
-    for _ in range(K):
+    for iter in range(K):
         # from https://github.com/dmivilensky/accelerated-taylor-descent/blob/master/ms%20taylor%20contract.ipynb
         i = int(np.random.choice(np.linspace(0, n - 1, n), p=S / S_sm))
         # from https://github.com/dmivilensky/accelerated-taylor-descent/blob/master/ms%20taylor%20contract.ipynb
@@ -122,13 +126,13 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
         x = y - grad * e / Li[i]
         v = v - (a * S_sm) * grad * e / (Li[i]**beta)
 
-        stats['xs'].append(x)
+        # stats['xs'].append(x)
 
         if stop_callback is not None and stop_callback(x):
-            return x, stats
+            return x, iter + 1
 
-    stats['iters'] = K
-    return x, stats
+    #stats['iters'] = K
+    return x, K
 
 
 class CompositeMaxOracle(oracles.BaseOracle):
@@ -182,18 +186,18 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
 
     g = CompositeMaxOracle(
         y_0, G, h, in_settings['H'], in_settings['K'],
-        lambda oracle: NesterovAcceleratedSolver(
-            y_0, oracle, in_nesterov_settings),
+        lambda y_00, oracle: NesterovAcceleratedSolver(
+            y_00, oracle, in_nesterov_settings),
         in_settings['stop_callback'])
 
     x, stats = AcceleratedMetaalgorithmSolver(
         x_0, f, g, out_settings['H'], out_settings['K'],
-        lambda oracle: NesterovAcceleratedSolver(
-            y_0, oracle, out_nesterov_settings),
+        lambda x_00, oracle: NesterovAcceleratedSolver(
+            x_00, oracle, out_nesterov_settings),
         out_settings['stop_callback'])
-
-    return x, {'out_stats': stats, 'in_stats': g.metrics()['alg'], 'g':
-               {'func': g.metrics()['func_calls'], 'grad': g.metrics()['grad_calls']}}
+    y = g.optimal_y(x)
+    return x, y, {'out_stats': stats, 'in_stats': g.metrics()['alg'], 'g':
+                  {'func': g.metrics()['func_calls'], 'grad': g.metrics()['grad_calls']}}
 
 
 def SolveSaddleCatalist():
