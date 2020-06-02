@@ -55,7 +55,7 @@ def computeLG(matrix):
     # print(z.shape)
     z[n:, :m] = (matrix / 2).T
     z[:n, m:] = matrix / 2
-    w = np.linalg.eigvals(2 * z)
+    w = np.abs(np.linalg.eigvals(2 * z))
     # for i in range(n + m):
     #    for j in range(n + m):
     #        print(z[i, j], end='\t')

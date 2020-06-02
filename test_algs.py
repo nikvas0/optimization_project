@@ -28,7 +28,8 @@ def test_metaalg(a, ak, b, bk, x_0, y_0):
                 'S': np.array([3 * b * bk, 3 * b * bk]),
                 'K': 120
             }),
-        lambda x: False)
+        lambda x: False,
+        lambda f, g, x: 0)
 
     print('metaalg a =', a, ', b =', b, ':', y)
     # print(stats)

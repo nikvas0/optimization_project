@@ -181,6 +181,23 @@ class MultiplyOracle(BaseSaddleOracle):
         return self.stat
 
 
+class ConstantOracle(BaseOracle):
+    def __init__(self, C):
+        self.C = C
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        return self.C
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+        return 0
+
+    def metrics(self):
+        return self.stat
+
+
 # oracles for experiments
 
 class MultiplySaddleOracle(BaseSaddleOracle):

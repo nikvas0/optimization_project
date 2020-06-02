@@ -1,8 +1,9 @@
 import numpy as np
 import oracles
+import copy
 
 
-def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback):
+def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback, fCallback):
     class OmegaOracle(oracles.BaseOracle):
         def __init__(self, f, x):
             self.f_val = f.func(x)
@@ -22,8 +23,8 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
             return {}
 
     class SubproblemOracle(oracles.BaseOracle):
-        def __init__(self, f, g, x_, H):
-            self.omega = OmegaOracle(f, x_)
+        def __init__(self, omega, g, x_, H):
+            self.omega = omega
             self.g = g
             self.x_ = x_.copy()
             self.H = H
@@ -49,7 +50,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
     stats = {
         'iters': 0,
         # 'ys': [x_0],
-        'fs': [f.func(x_0) + g.func(x_0)],
+        'fs': [],
         'in_iters': []
     }
 
@@ -62,14 +63,15 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         A_new = A + a_new
         x_ = (A * y / A_new) + (a_new * x / A_new)
 
-        y_new, in_iters = subproblemCallback(x_, SubproblemOracle(f, g, x_, H))
+        y_new, in_iters = subproblemCallback(
+            x_, SubproblemOracle(OmegaOracle(f, x_), g, x_, H))
 
         x = x - a_new * f.grad(y_new) - a_new * g.grad(y_new)
         y = y_new
 
         stats['iters'] = i + 1
         # stats['ys'].append(y)
-        stats['fs'].append(f.func(y) + g.func(y))
+        stats['fs'].append(fCallback(f, g, y))
         stats['in_iters'].append(in_iters)
 
         A = A_new
@@ -138,6 +140,7 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
 class CompositeMaxOracle(oracles.BaseOracle):
     def __init__(self, y_0, G, h, H, K, subproblemCallback, stopCallback):
         self.y_0 = y_0.copy()
+        self.y_last = self.y_0
         self.G = G
         self.h = h
         self.H = H
@@ -150,14 +153,16 @@ class CompositeMaxOracle(oracles.BaseOracle):
         self.alg_stats = []
 
     def optimal_y(self, x):
-        y, stats = AcceleratedMetaalgorithmSolver(  # alg searches for min, so we use it for -G_x(y) + h(y)
-            self.y_0, self.h, oracles.KOracle(
+        self.y_last, stats = AcceleratedMetaalgorithmSolver(  # alg searches for min, so we use it for -G_x(y) + h(y)
+            self.y_last, self.h, oracles.KOracle(  # use y from prev run
                 oracles.FixedXOracle(self.G, x), -1),
             self.H, self.K, self.subproblemCallback,
-            self.stopCallback)
+            self.stopCallback,
+            lambda G_y, h, y: G_y.func(y) - h.func(y))
         self.alg_stats.append(stats)
-        # self.y_0 = y  # use y from prev run
-        return y
+
+        # self.y_0 = self.y_last  # use y from prev run
+        return self.y_last
 
     def func(self, x):
         self.f_calls += 1
@@ -194,11 +199,22 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
         x_0, f, g, out_settings['H'], out_settings['K'],
         lambda x_00, oracle: NesterovAcceleratedSolver(
             x_00, oracle, out_nesterov_settings),
-        out_settings['stop_callback'])
-    y = g.optimal_y(x)
+        out_settings['stop_callback'],
+        lambda f, g, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
+
+    y = g.y_last  # copy.deepcopy(g).optimal_y(x)
+    #print(f.func(x_0) + G.func(x_0, y_0) - h.func(y_0))
+    #print(f.func(x) + G.func(x, y) - h.func(y))
     return x, y, {'out_stats': stats, 'in_stats': g.metrics()['alg'], 'g':
                   {'func': g.metrics()['func_calls'], 'grad': g.metrics()['grad_calls']}}
 
 
-def SolveSaddleCatalist():
+class CompositeSaddleOracle(oracles.BaseOracle):
+    pass
+
+
+def SolveSaddleCatalist(x_0, y_0, f, G, h, saddle_settings):
+    H = saddle_settings['H']
+    saddle = CompositeSaddleOracle()
+
     pass
