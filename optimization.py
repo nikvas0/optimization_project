@@ -138,9 +138,10 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
 
 
 class CompositeMaxOracle(oracles.BaseOracle):
-    def __init__(self, y_0, G, h, H, K, subproblemCallback, stopCallback):
+    def __init__(self, y_0, f, G, h, H, K, subproblemCallback, stopCallback):
         self.y_0 = y_0.copy()
         self.y_last = self.y_0
+        self.f = f
         self.G = G
         self.h = h
         self.H = H
@@ -158,7 +159,7 @@ class CompositeMaxOracle(oracles.BaseOracle):
                 oracles.FixedXOracle(self.G, x), -1),
             self.H, self.K, self.subproblemCallback,
             self.stopCallback,
-            lambda G_y, h, y: G_y.func(y) - h.func(y))
+            lambda h__, G_y__, y: self.f.func(x) + self.G.func(x, y) - self.h.func(y))
         self.alg_stats.append(stats)
 
         # self.y_0 = self.y_last  # use y from prev run
@@ -190,7 +191,7 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
     """
 
     g = CompositeMaxOracle(
-        y_0, G, h, in_settings['H'], in_settings['K'],
+        y_0, f, G, h, in_settings['H'], in_settings['K'],
         lambda y_00, oracle: NesterovAcceleratedSolver(
             y_00, oracle, in_nesterov_settings),
         in_settings['stop_callback'])
@@ -200,7 +201,7 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
         lambda x_00, oracle: NesterovAcceleratedSolver(
             x_00, oracle, out_nesterov_settings),
         out_settings['stop_callback'],
-        lambda f__, g, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
+        lambda f__, g__, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
 
     y = g.y_last  # copy.deepcopy(g).optimal_y(x)
     #print(f.func(x_0) + G.func(x_0, y_0) - h.func(y_0))
@@ -255,6 +256,6 @@ def SolveSaddleCatalist(x_0, y_0, f, G, h,
     x, stats = AcceleratedMetaalgorithmSolver(
         x_0, zero, F, catalist_settings['H'], catalist_settings['K'],
         inner_callback, catalist_settings['stop_callback'],
-        lambda f_, g, x: f.func(x) + G.func(x, F.y_last) - h.func(F.y_last))
+        lambda f_, g_, x: f.func(x) + G.func(x, F.y_last) - h.func(F.y_last))
 
     return x, F.y_last, {'catalist': stats, 'saddle': inner_stats}
