@@ -200,7 +200,7 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
         lambda x_00, oracle: NesterovAcceleratedSolver(
             x_00, oracle, out_nesterov_settings),
         out_settings['stop_callback'],
-        lambda f, g, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
+        lambda f__, g, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
 
     y = g.y_last  # copy.deepcopy(g).optimal_y(x)
     #print(f.func(x_0) + G.func(x_0, y_0) - h.func(y_0))
@@ -209,12 +209,52 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
                   {'func': g.metrics()['func_calls'], 'grad': g.metrics()['grad_calls']}}
 
 
-class CompositeSaddleOracle(oracles.BaseOracle):
-    pass
+class CompositeSaddleOracle:
+    def __init__(self, y_0, f, G, h, out_settings, out_nesterov_settings, in_settings, in_nesterov_settings):
+        self.y_last = y_0
+        self.f = f
+        self.G = G
+        self.h = h
+
+        self.f_calls = 0
+        self.grad_calls = 0
+        self.alg_stats = []
+
+    def func(self, x):
+        self.f_calls += 1
+        return self.f.func(x) + self.G.func(x, self.y_last) - self.h.func(self.y_last)
+
+    def grad(self, x):
+        self.grad_calls += 1
+        return self.f.grad(x) + self.G.grad_x(x, self.y_last)
+
+    def metrics(self, x):
+        pass
 
 
-def SolveSaddleCatalist(x_0, y_0, f, G, h, saddle_settings):
-    H = saddle_settings['H']
-    saddle = CompositeSaddleOracle()
+def SolveSaddleCatalist(x_0, y_0, f, G, h,
+                        catalist_settings,
+                        out_settings, out_nesterov_settings,
+                        in_settings, in_nesterov_settings):
+    F = CompositeSaddleOracle(y_0, f, G, h,
+                              out_settings, out_nesterov_settings,
+                              in_settings, in_nesterov_settings)
 
-    pass
+    zero = oracles.ConstantOracle(0)
+
+    inner_stats = []
+
+    def inner_callback(x_00, oracle):
+        x, y, stats = SolveSaddle(x_00, F.y_last, f, G, h,
+                                  out_settings, out_nesterov_settings,
+                                  in_settings, in_nesterov_settings)
+        F.y_last = y
+        inner_stats.append(stats)
+        return x, stats['out_stats']['iters']
+
+    x, stats = AcceleratedMetaalgorithmSolver(
+        x_0, zero, F, catalist_settings['H'], catalist_settings['K'],
+        inner_callback, catalist_settings['stop_callback'],
+        lambda f_, g, x: f.func(x) + G.func(x, F.y_last) - h.func(F.y_last))
+
+    return x, F.y_last, {'catalist': stats, 'saddle': inner_stats}

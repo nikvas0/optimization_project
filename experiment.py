@@ -69,7 +69,7 @@ def quadraticFormFromHess(A):
 
 
 def computeMaxMinEigen(matrix):
-    w = np.linalg.eigvals(matrix)
+    w = np.abs(np.linalg.eigvals(matrix))
     return np.max(w), np.min(w)
 
 
@@ -124,6 +124,19 @@ def runSaddleExperiment(experiment, settings, seed=None):
     x, y, stats = optimization.SolveSaddle(
         settings['x_0'], settings['y_0'],
         experiment.f, experiment.G, experiment.h,
+        settings['out'], settings['out_nesterov'],
+        settings['in'], settings['in_nesterov'])
+    return x, y, stats
+
+
+def runSaddleCatalistExperiment(experiment, settings, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
+    x, y, stats = optimization.SolveSaddleCatalist(
+        settings['x_0'], settings['y_0'],
+        experiment.f, experiment.G, experiment.h,
+        settings['catalist'],
         settings['out'], settings['out_nesterov'],
         settings['in'], settings['in_nesterov'])
     return x, y, stats
