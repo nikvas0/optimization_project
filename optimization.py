@@ -66,7 +66,9 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         y_new, in_iters = subproblemCallback(
             x_, SubproblemOracle(OmegaOracle(f, x_), g, x_, H))
 
-        x = x - a_new * f.grad(y_new) - a_new * g.grad(y_new)
+        f_grad = f.grad(y_new)
+        g_grad = g.grad(y_new)
+        x = x - a_new * f_grad - a_new * g_grad
         y = y_new
 
         stats['iters'] = i + 1
@@ -76,7 +78,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
 
         A = A_new
 
-        if stopCallback is not None and stopCallback(y):
+        if stopCallback is not None and stopCallback(f_grad + g_grad):
             return y, stats
 
     return y, stats
