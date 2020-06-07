@@ -49,7 +49,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
 
     stats = {
         'iters': 0,
-        # 'ys': [x_0],
+        'gs': [x_0],
         'fs': [],
         'in_iters': []
     }
@@ -72,7 +72,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         y = y_new
 
         stats['iters'] = i + 1
-        # stats['ys'].append(y)
+        stats['gs'].append(np.sum((f_grad + g_grad)**2))
         stats['fs'].append(fCallback(f, g, y))
         stats['in_iters'].append(in_iters)
 
