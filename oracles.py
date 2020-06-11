@@ -250,3 +250,61 @@ class QuadraticFormOracle(BaseOracle):
 
     def metrics(self):
         return self.stat
+
+
+class LogSumExpOracle(BaseOracle):
+
+    def __init__(self, A):
+        self.A = np.array(A)
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
+        t = np.dot(self.A, x)
+        u = t.max()
+        t -= u
+        return u + np.log(np.sum(np.exp(t)))
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+
+        # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
+        s = np.dot(self.A, x)
+        b = s.max()
+        z = np.exp(s - b)
+        return np.dot(self.A.T, z) / np.dot(np.ones(self.A.shape[1]), z)
+
+    def grad_stoh(self, x, i):
+        self.stat['g_calls'] += 1
+
+        # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
+        s = np.dot(self.A, x)
+        b = s.max()
+        z = np.exp(s - b)
+        return np.dot(self.A.T[i], z) / np.dot(np.ones(self.A.shape[1]), z)
+
+    def metrics(self):
+        return self.stat
+
+
+class NormOracle(BaseOracle):
+
+    def __init__(self, G):
+        self.G = G
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        return np.dot(x, np.dot(self.G, x)) / 2
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+        return np.dot(self.G, x)
+
+    def grad_stoh(self, x):
+        self.stat['g_calls'] += 1
+        return np.dot(self.G[i], x)
+
+    def metrics(self):
+        return self.stat

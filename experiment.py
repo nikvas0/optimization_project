@@ -117,6 +117,14 @@ def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=N
     return exp, f_m, G_m, h_m
 
 
+def generateExpExperiment(dx, dy, A_params, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    p = A_params['p']
+
+    return
+
+
 def runSaddleExperiment(experiment, settings, seed=None):
     if seed is not None:
         np.random.seed(seed)

@@ -49,7 +49,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
 
     stats = {
         'iters': 0,
-        'gs': [x_0],
+        'gs': [],
         'fs': [],
         'in_iters': []
     }
