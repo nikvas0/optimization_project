@@ -50,7 +50,7 @@ def generateRandomMatrix(n, eigen_min, eigen_max, seed=None):
 
 def computeLG(matrix):
     n, m = matrix.shape[0], matrix.shape[1]
-    #print(n, m)
+    # print(n, m)
     z = np.zeros(shape=(n + m, n + m))
     # print(z.shape)
     z[n:, :m] = (matrix / 2).T
@@ -103,6 +103,31 @@ def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
     return params
 
 
+def calculateExpExperimentParams(dx, dy, A, A2, l, G_m):
+    params = ExperimentParams()
+
+    params.f = oracles.SumOracle([
+        oracles.LogSumExpOracle(A),
+        oracles.QuadraticFormOracle((l / 2) * np.eye(dx))
+    ])
+
+    params.G = oracles.MultiplySaddleOracle(G_m)
+
+    params.h = oracles.SumOracle([
+        oracles.LogSumExpOracle(A2),
+        oracles.QuadraticFormOracle((l / 2) * np.eye(dy))
+    ])
+
+    # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
+    # params.L_f = max(
+    #    [np.linalg.norm(A[:, k]) ** 2 for k in range(dx)])
+    # params.L_h = max(
+    #    [np.linalg.norm(A2[:, k]) ** 2 for k in range(dy)])
+    params.L_G = computeLG(G_m)
+
+    return params
+
+
 def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=None):
     if seed is not None:
         np.random.seed(seed)
@@ -117,12 +142,30 @@ def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=N
     return exp, f_m, G_m, h_m
 
 
-def generateExpExperiment(dx, dy, A_params, seed=None):
+def generateExpExperiment(dx, dy, A_params, l, seed=None):
     if seed is not None:
         np.random.seed(seed)
-    p = A_params['p']
 
-    return
+    p = A_params['p']
+    sparsity = A_params['sparsity']
+
+    # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
+    A = np.zeros(shape=(p, dx))
+    A[
+        np.random.randint(p, size=int(sparsity * p * dx)),
+        np.random.randint(dx, size=int(sparsity * p * dx))
+    ] = np.random.random(int(sparsity * p * dx)) * 2 - 1
+
+    A2 = np.zeros(shape=(p, dx))
+    A2[
+        np.random.randint(p, size=int(sparsity * p * dx)),
+        np.random.randint(dx, size=int(sparsity * p * dx))
+    ] = np.random.random(int(sparsity * p * dx)) * 2 - 1
+
+    G_m = generateRandomGMatrix(dx, dy, -1, 1)
+
+    exp = calculateExpExperimentParams(dx, dy, A, A2, l, G_m)
+    return exp
 
 
 def runSaddleExperiment(experiment, settings, seed=None):

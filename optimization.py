@@ -4,7 +4,24 @@ import copy
 
 
 def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback, fCallback):
+    """
+    Solves optimization problem using accelerated metaalgorithm
+    :param x_0: start point
+    :param f: oracle
+    :param g: oracle
+    :param H: H param for metaalgorithm
+    :param K: max iterations
+    :param subproblemCallback:
+    :param stopCallback:
+    :param fCallback:
+    :return: point and stats
+    """
+
     class OmegaOracle(oracles.BaseOracle):
+        """
+        Oracle for omega function
+        """
+
         def __init__(self, f, x):
             self.f_val = f.func(x)
             self.f_grad = f.grad(x)
@@ -23,6 +40,10 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
             return {}
 
     class SubproblemOracle(oracles.BaseOracle):
+        """
+        Oracle for solving subproblem in metaalgorithm
+        """
+
         def __init__(self, omega, g, x_, H):
             self.omega = omega
             self.g = g
@@ -72,7 +93,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         y = y_new
 
         stats['iters'] = i + 1
-        stats['gs'].append(np.sum((f_grad + g_grad)**2))
+        stats['gs'].append(np.linalg.norm(f_grad + g_grad))
         stats['fs'].append(fCallback(f, g, y))
         stats['in_iters'].append(in_iters)
 
@@ -140,6 +161,16 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
 
 
 class CompositeMaxOracle(oracles.BaseOracle):
+    """
+    Oracle for maximization problem
+    :param y_0: start point
+    :param f: oracle with grad
+    :param G: oracle(x, y) with grad_x and grad_y
+    :param h: oracle with grad
+    :param H: H param for metaalgorithm
+    :param K: metaalgorithm iterations
+    """
+
     def __init__(self, y_0, f, G, h, H, K, subproblemCallback, stopCallback):
         self.y_0 = y_0.copy()
         self.y_last = self.y_0
@@ -186,6 +217,8 @@ class CompositeMaxOracle(oracles.BaseOracle):
 def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_settings, in_nesterov_settings):
     """
     Solves saddle optimization problem.
+    :param x_0: start point
+    :param y_0: start point
     :param f: oracle with grad
     :param G: oracle(x, y) with grad_x and grad_y
     :param h: oracle with grad
@@ -239,6 +272,16 @@ def SolveSaddleCatalist(x_0, y_0, f, G, h,
                         catalist_settings,
                         out_settings, out_nesterov_settings,
                         in_settings, in_nesterov_settings):
+    """
+    Solves saddle optimization problem using catalist.
+    :param x_0: start point
+    :param y_0: start point
+    :param f: oracle with grad
+    :param G: oracle(x, y) with grad_x and grad_y
+    :param h: oracle with grad
+    :return: min_x [f(x) + max_y (G(x, y) - h(y))], stats
+    """
+
     F = CompositeSaddleOracle(y_0, f, G, h,
                               out_settings, out_nesterov_settings,
                               in_settings, in_nesterov_settings)

@@ -43,7 +43,7 @@ class BaseOracle:
 
 class BaseSaddleOracle:
     """
-    Base class for implementation of oracles. (based on https://github.com/arodomanov/cmc-mipt17-opt-course/blob/master/task4/oracles.py)
+    Base class for implementation of saddle oracles.
     """
 
     def __init__(self):
@@ -59,7 +59,7 @@ class BaseSaddleOracle:
 
     def grad_x(self, x, y):
         """
-        Computes the grad at point x, y.
+        Computes the grad by x at point x, y.
         :param x, y: point for computation
         :return: gradient
         """
@@ -67,7 +67,7 @@ class BaseSaddleOracle:
 
     def grad_y(self, x, y):
         """
-        Computes the grad at point x, y.
+        Computes the grad by y at point x, y.
         :param x, y: point for computation
         :return: gradient
         """
@@ -75,7 +75,7 @@ class BaseSaddleOracle:
 
     def grad_y_stoh(self, x, y, i):
         """
-        Computes the grad[i] at point x, y.
+        Computes the grad_y[i] at point x, y.
         :param x, y: point for computation
         :return: gradient
         """
@@ -83,7 +83,7 @@ class BaseSaddleOracle:
 
     def grad_x_stoh(self, x, y, i):
         """
-        Computes the grad[i] at point x, y.
+        Computes the grad_x[i] at point x, y.
         :param x, y: point for computation
         :return: gradient
         """
@@ -116,6 +116,10 @@ class KOracle(BaseOracle):
 
 
 class FixedXOracle(BaseOracle):
+    """
+    Saddle oracle with fixed x coordinate
+    """
+
     def __init__(self, saddle, x):
         self.saddle = saddle
         self.x = x
@@ -198,6 +202,36 @@ class ConstantOracle(BaseOracle):
         return self.stat
 
 
+class SumOracle(BaseOracle):
+    def __init__(self, lst):
+        self.lst = lst
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        res = 0
+        for o in self.lst:
+            res += o.func(x)
+        return res
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+        res = 0
+        for o in self.lst:
+            res += o.grad(x)
+        return res
+
+    def grad_stoh(self, x, i):
+        self.stat['g_calls'] += 1
+        res = 0
+        for o in self.lst:
+            res += o.grad_stoh(x)
+        return res
+
+    def metrics(self):
+        return self.stat
+
+
 # oracles for experiments
 
 class MultiplySaddleOracle(BaseSaddleOracle):
@@ -273,7 +307,7 @@ class LogSumExpOracle(BaseOracle):
         s = np.dot(self.A, x)
         b = s.max()
         z = np.exp(s - b)
-        return np.dot(self.A.T, z) / np.dot(np.ones(self.A.shape[1]), z)
+        return np.dot(self.A.T, z) / np.dot(np.ones(self.A.shape[0]), z)
 
     def grad_stoh(self, x, i):
         self.stat['g_calls'] += 1
@@ -282,7 +316,7 @@ class LogSumExpOracle(BaseOracle):
         s = np.dot(self.A, x)
         b = s.max()
         z = np.exp(s - b)
-        return np.dot(self.A.T[i], z) / np.dot(np.ones(self.A.shape[1]), z)
+        return np.dot(self.A.T[i], z) / np.dot(np.ones(self.A.shape[0]), z)
 
     def metrics(self):
         return self.stat
@@ -305,6 +339,28 @@ class NormOracle(BaseOracle):
     def grad_stoh(self, x):
         self.stat['g_calls'] += 1
         return np.dot(self.G[i], x)
+
+    def metrics(self):
+        return self.stat
+
+
+class EntropyOracle(BaseOracle):
+
+    def __init__(self, A):
+        self.A = np.array(A)
+        self.stat = {'f_calls': 0, 'g_calls': 0}
+
+    def func(self, x):
+        self.stat['f_calls'] += 1
+        pass
+
+    def grad(self, x):
+        self.stat['g_calls'] += 1
+        pass
+
+    def grad_stoh(self, x, i):
+        self.stat['g_calls'] += 1
+        pass
 
     def metrics(self):
         return self.stat
