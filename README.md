@@ -3,7 +3,7 @@
 Ускоренный метаалгоритм (https://arxiv.org/pdf/2004.08691.pdf) для седловых задач.
 
 
-* experiment.ipynb --- эксперименты
+* experiments_*.ipynb --- эксперименты
 
 * oracles.py --- код оракулов
 * optimization.py --- методы оптимизации
