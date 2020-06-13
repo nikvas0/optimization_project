@@ -27,13 +27,21 @@ class ExperimentParams:
         }
 
 
-def generateRandomGMatrix(n, m, low, high, seed=None):
+def generateRandomGBilinearMatrix(n, m, low, high, seed=None):
+    """
+    Generates random matrix for bilinear operator
+    """
+
     if seed is not None:
         np.random.seed(seed)
     return np.matrix(np.random.random(size=(n, m)) * (high - low) + low)
 
 
 def generateRandomMatrix(n, eigen_min, eigen_max, seed=None):
+    """
+    Generates random matrix with eigenvalues from [eigen_min, eigen_max]
+    """
+
     if seed is not None:
         np.random.seed(seed)
     eigen_vals = [eigen_min, eigen_max]
@@ -49,6 +57,10 @@ def generateRandomMatrix(n, eigen_min, eigen_max, seed=None):
 
 
 def computeLG(matrix):
+    """
+    Computes Lipschitz constant for the given bilinear form 
+    """
+
     n, m = matrix.shape[0], matrix.shape[1]
     # print(n, m)
     z = np.zeros(shape=(n + m, n + m))
@@ -65,15 +77,24 @@ def computeLG(matrix):
 
 
 def quadraticFormFromHess(A):
+    """
+    Computes quadratic form from it's Hessian
+    """
     return A / 2
 
 
 def computeMaxMinEigen(matrix):
+    """
+    Computes min and max eigenvalues
+    """
     w = np.abs(np.linalg.eigvals(matrix))
     return np.max(w), np.min(w)
 
 
 def checkEigenValues(matrix, eigen_min, eigen_max):
+    """
+    Checks constants L and \mu
+    """
     EPS = 1e-9
     L, mu = computeMaxMinEigen(matrix)
     assert np.abs(mu - eigen_min) < EPS
@@ -81,16 +102,25 @@ def checkEigenValues(matrix, eigen_min, eigen_max):
 
 
 def generateRandomFHMatrix(n, eigen_min, eigen_max, seed=None):
+    """
+    Generates random quadratic form with L = eigen_max and mu = eigen_min
+    """
     A = generateRandomMatrix(n, eigen_min, eigen_max, seed)
     checkEigenValues(A, eigen_min, eigen_max)
     return quadraticFormFromHess(A)
 
 
 def computeLMu(A):
+    """
+    Computes L and mu constants for the provided quadratic form
+    """
     return computeMaxMinEigen(2 * A)
 
 
 def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
+    """
+    Use provided matrixes to generate experiment with quadratic forms
+    """
     params = ExperimentParams()
     params.f = oracles.QuadraticFormOracle(f_m)
     params.G = oracles.MultiplySaddleOracle(G_m)
@@ -103,27 +133,25 @@ def calculateQuadraticFormExperimentParams(f_m, G_m, h_m):
     return params
 
 
-def calculateExpExperimentParams(dx, dy, A, A2, l, G_m):
+def calculateExpExperimentParams(dx, dy, Af, Ah, lf, lh, G_m):
+    """
+    Use provided params to generate experiment with logSumExp functions
+    """
+
     params = ExperimentParams()
 
     params.f = oracles.SumOracle([
-        oracles.LogSumExpOracle(A),
-        oracles.QuadraticFormOracle((l / 2) * np.eye(dx))
+        oracles.LogSumExpOracle(Af),
+        oracles.QuadraticFormOracle((lf / 2) * np.eye(dx))
     ])
 
+    #params.G = oracles.MatrixFromYSaddleOracle(G_m, G_b)
     params.G = oracles.MultiplySaddleOracle(G_m)
 
     params.h = oracles.SumOracle([
-        oracles.LogSumExpOracle(A2),
-        oracles.QuadraticFormOracle((l / 2) * np.eye(dy))
+        oracles.LogSumExpOracle(Ah),
+        oracles.QuadraticFormOracle((lh / 2) * np.eye(dy))
     ])
-
-    # https://github.com/dmivilensky/composite-accelerated-method/blob/master/meta-algorithm-vs-ms.ipynb
-    # params.L_f = max(
-    #    [np.linalg.norm(A[:, k]) ** 2 for k in range(dx)])
-    # params.L_h = max(
-    #    [np.linalg.norm(A2[:, k]) ** 2 for k in range(dy)])
-    params.L_G = computeLG(G_m)
 
     return params
 
@@ -132,7 +160,7 @@ def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=N
     if seed is not None:
         np.random.seed(seed)
 
-    G_m = generateRandomGMatrix(
+    G_m = generateRandomGBilinearMatrix(
         dx, dy, G_params['min'], G_params['max'])
     f_m = generateRandomFHMatrix(dx, f_params['mu'], f_params['L'])
     h_m = generateRandomFHMatrix(dy, h_params['mu'], h_params['L'])
@@ -142,7 +170,7 @@ def generateQuadraticFormExperiment(dx, dy, f_params, G_params, h_params, seed=N
     return exp, f_m, G_m, h_m
 
 
-def generateExpExperiment(dx, dy, A_params, l, seed=None):
+def generateExpExperiment(dx, dy, A_params, lf, lh, seed=None):
     if seed is not None:
         np.random.seed(seed)
 
@@ -162,9 +190,9 @@ def generateExpExperiment(dx, dy, A_params, l, seed=None):
         np.random.randint(dx, size=int(sparsity * p * dx))
     ] = np.random.random(int(sparsity * p * dx)) * 2 - 1
 
-    G_m = generateRandomGMatrix(dx, dy, -1, 1)
+    G_m = generateRandomGBilinearMatrix(dx, dy, -1, 1)
 
-    exp = calculateExpExperimentParams(dx, dy, A, A2, l, G_m)
+    exp = calculateExpExperimentParams(dx, dy, A, A2, lf, lh, G_m)
     return exp
 
 

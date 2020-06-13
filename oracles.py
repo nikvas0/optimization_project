@@ -157,6 +157,10 @@ class PowerOracle(BaseOracle):
 
 
 class MultiplyOracle(BaseSaddleOracle):
+    """
+    Used only for tests
+    """
+
     def __init__(self, k):
         self.k = k
         self.stat = {'f_calls': 0, 'g_calls': 0}
@@ -203,6 +207,10 @@ class ConstantOracle(BaseOracle):
 
 
 class SumOracle(BaseOracle):
+    """
+    Oracle for summing provided oracles
+    """
+
     def __init__(self, lst):
         self.lst = lst
         self.stat = {'f_calls': 0, 'g_calls': 0}
@@ -235,6 +243,10 @@ class SumOracle(BaseOracle):
 # oracles for experiments
 
 class MultiplySaddleOracle(BaseSaddleOracle):
+    """
+    Oracle for bilinear form
+    """
+
     def __init__(self, A):
         self.A = np.array(A)
         self.stat = {'f_calls': 0, 'g_calls': 0,
@@ -265,7 +277,60 @@ class MultiplySaddleOracle(BaseSaddleOracle):
         return self.stat
 
 
+class MatrixFromYSaddleOracle(BaseSaddleOracle):
+    """
+    UNUSED   Oracle for function <x, A(y) x>
+    """
+
+    def __init__(self, O, B):
+        self.O = np.array(O)
+        self.B = np.array(B)
+        self.stat = {'f_calls': 0, 'g_calls': 0,
+                     'g_calls_x': 0, 'g_calls_y': 0}
+
+    def func(self, x, y):
+        self.stat['f_calls'] += 1
+        d = np.diag(20 - np.dot(self.B, y))
+        assert np.all(d > 0)
+        A = np.dot(self.O.T, np.dot(d, self.O))
+        return np.dot(x.T, np.dot(A, x))
+
+    def grad_x(self, x, y):
+        self.stat['g_calls_x'] += 1
+        d = np.diag(20 - np.dot(self.B, y))
+        assert np.all(d > 0)
+        A = np.dot(self.O, np.dot(d, self.O))
+        return np.dot(2 * A, x)
+
+    def grad_x_stoh(self, x, y, i):
+        self.stat['g_calls_x'] += 1
+        d = np.diag(20 - np.dot(self.B, y))
+        assert np.all(d > 0)
+        A = np.dot(self.O.T, np.dot(d, self.O))
+        return np.dot(2 * A[i], x)
+
+    def grad_y(self, x, y):
+        self.stat['g_calls_y'] += 1
+        assert np.all(np.dot(self.B, y) > 20)
+        Ox = np.dot(self.O, x)
+        return (Ox.T * Ox) * self.B
+
+    def grad_y_stoh(self, x, y, i):
+        self.stat['g_calls_y'] += 1
+        assert np.all(np.dot(self.B, y) > 20)
+        Ox = np.dot(self.O, x)
+        return (Ox.T[i] * Ox[i]) * self.B[i]
+
+    def metrics(self):
+        self.stat['g_calls'] = self.stat['g_calls_x'] + self.stat['g_calls_y']
+        return self.stat
+
+
 class QuadraticFormOracle(BaseOracle):
+    """
+    Oracle for quadratic form
+    """
+
     def __init__(self, A):
         self.A = np.array(A)
         self.stat = {'f_calls': 0, 'g_calls': 0}
@@ -287,6 +352,9 @@ class QuadraticFormOracle(BaseOracle):
 
 
 class LogSumExpOracle(BaseOracle):
+    """
+    Oracle for function $\log(\sum_{k=1} ^ p \exp \langle A_k, x\rangle)$
+    """
 
     def __init__(self, A):
         self.A = np.array(A)
@@ -323,6 +391,9 @@ class LogSumExpOracle(BaseOracle):
 
 
 class NormOracle(BaseOracle):
+    """
+    UNUSED
+    """
 
     def __init__(self, G):
         self.G = G
@@ -339,28 +410,6 @@ class NormOracle(BaseOracle):
     def grad_stoh(self, x):
         self.stat['g_calls'] += 1
         return np.dot(self.G[i], x)
-
-    def metrics(self):
-        return self.stat
-
-
-class EntropyOracle(BaseOracle):
-
-    def __init__(self, A):
-        self.A = np.array(A)
-        self.stat = {'f_calls': 0, 'g_calls': 0}
-
-    def func(self, x):
-        self.stat['f_calls'] += 1
-        pass
-
-    def grad(self, x):
-        self.stat['g_calls'] += 1
-        pass
-
-    def grad_stoh(self, x, i):
-        self.stat['g_calls'] += 1
-        pass
 
     def metrics(self):
         return self.stat
