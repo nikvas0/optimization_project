@@ -279,12 +279,11 @@ class MultiplySaddleOracle(BaseSaddleOracle):
 
 class MatrixFromYSaddleOracle(BaseSaddleOracle):
     """
-    UNUSED   Oracle for function <x, A(y) x>
+    Oracle for function <x, A(y) x>
     """
 
-    def __init__(self, O, B):
-        self.O = np.array(O)
-        self.B = np.array(B)
+    def __init__(self, O, m):
+        self.m = []
         self.stat = {'f_calls': 0, 'g_calls': 0,
                      'g_calls_x': 0, 'g_calls_y': 0}
 
