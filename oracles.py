@@ -279,46 +279,55 @@ class MultiplySaddleOracle(BaseSaddleOracle):
 
 class MatrixFromYSaddleOracle(BaseSaddleOracle):
     """
-    Oracle for function <x, A(y) x>
+    Oracle for function <x, A(y) x>,
+        where A(y) = \sum_{i= 1}^{k} M_k \cdot a_i,
+            where a_i = B_i \cdot |y|
     """
 
-    def __init__(self, O, m):
-        self.m = []
+    def __init__(self, matrixes, B):
+        self.matrixes = matrixes
+        self.B = B
         self.stat = {'f_calls': 0, 'g_calls': 0,
                      'g_calls_x': 0, 'g_calls_y': 0}
 
     def func(self, x, y):
-        self.stat['f_calls'] += 1
-        d = np.diag(20 - np.dot(self.B, y))
-        assert np.all(d > 0)
-        A = np.dot(self.O.T, np.dot(d, self.O))
+        b = np.dot(self.B, np.abs(y))
+        A = 0
+        for i in range(len(self.matrixes)):
+            A += b[i] * self.matrixes[i]
         return np.dot(x.T, np.dot(A, x))
 
     def grad_x(self, x, y):
         self.stat['g_calls_x'] += 1
-        d = np.diag(20 - np.dot(self.B, y))
-        assert np.all(d > 0)
-        A = np.dot(self.O, np.dot(d, self.O))
+        b = np.dot(self.B, np.abs(y))
+        A = 0
+        for j in range(len(self.matrixes)):
+            A += b[j] * self.matrixes[j]
         return np.dot(2 * A, x)
 
     def grad_x_stoh(self, x, y, i):
         self.stat['g_calls_x'] += 1
-        d = np.diag(20 - np.dot(self.B, y))
-        assert np.all(d > 0)
-        A = np.dot(self.O.T, np.dot(d, self.O))
-        return np.dot(2 * A[i], x)
+        b = np.dot(self.B, np.abs(y))
+        A = 0
+        for j in range(len(self.matrixes)):
+            A += b[j] * self.matrixes[j][i]
+        return np.dot(2 * A, x)
 
     def grad_y(self, x, y):
         self.stat['g_calls_y'] += 1
-        assert np.all(np.dot(self.B, y) > 20)
-        Ox = np.dot(self.O, x)
-        return (Ox.T * Ox) * self.B
+        res = 0
+        for j in range(len(self.matrixes)):
+            res += np.dot(x,
+                          np.dot(self.matrixes[j], x)) * self.B[j] * np.sign(y)
+        return res
 
     def grad_y_stoh(self, x, y, i):
         self.stat['g_calls_y'] += 1
-        assert np.all(np.dot(self.B, y) > 20)
-        Ox = np.dot(self.O, x)
-        return (Ox.T[i] * Ox[i]) * self.B[i]
+        res = 0
+        for j in range(len(self.matrixes)):
+            res += np.dot(x, np.dot(self.matrixes[j], x)
+                          ) * self.B[j][i] * np.sign(y[i])
+        return res
 
     def metrics(self):
         self.stat['g_calls'] = self.stat['g_calls_x'] + self.stat['g_calls_y']
