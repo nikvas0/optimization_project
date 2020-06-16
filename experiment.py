@@ -70,8 +70,8 @@ def generateRandomGMatrixes(n, k, m, eigen_min, eigen_max, seed=None):
 
     B = np.random.random(size=(k, m))
     for i in range(k):
-        B[i] /= np.sum(B[i])  # normalize
-        assert np.abs(np.sum(B[i]) - 1) < 1e-9
+        B[i] /= np.sum(B[i]) * k  # normalize
+        assert np.abs(np.sum(B[i]) - 1 / k) < 1e-9
 
     return ms, B
 
@@ -287,7 +287,8 @@ def runSaddleExperiment(experiment, settings, seed=None):
         settings['x_0'], settings['y_0'],
         experiment.f, experiment.G, experiment.h,
         settings['out'], settings['out_nesterov'],
-        settings['in'], settings['in_nesterov'])
+        settings['in'], settings['in_nesterov'],
+        settings.get('notnegative_y', False))
     return x, y, stats
 
 
@@ -300,5 +301,6 @@ def runSaddleCatalistExperiment(experiment, settings, seed=None):
         experiment.f, experiment.G, experiment.h,
         settings['catalist'],
         settings['out'], settings['out_nesterov'],
-        settings['in'], settings['in_nesterov'])
+        settings['in'], settings['in_nesterov'],
+        settings.get('notnegative_y', False))
     return x, y, stats

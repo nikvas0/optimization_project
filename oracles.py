@@ -281,7 +281,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
     """
     Oracle for function <x, A(y) x>,
         where A(y) = \sum_{i= 1}^{k} M_k \cdot a_i,
-            where a_i = B_i \cdot |y|
+            where a_i = B_i \cdot y
     """
 
     def __init__(self, matrixes, B):
@@ -291,7 +291,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
                      'g_calls_x': 0, 'g_calls_y': 0}
 
     def func(self, x, y):
-        b = np.dot(self.B, np.abs(y))
+        b = np.dot(self.B, y)
         A = 0
         for i in range(len(self.matrixes)):
             A += b[i] * self.matrixes[i]
@@ -299,7 +299,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
 
     def grad_x(self, x, y):
         self.stat['g_calls_x'] += 1
-        b = np.dot(self.B, np.abs(y))
+        b = np.dot(self.B, y)
         A = 0
         for j in range(len(self.matrixes)):
             A += b[j] * self.matrixes[j]
@@ -307,7 +307,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
 
     def grad_x_stoh(self, x, y, i):
         self.stat['g_calls_x'] += 1
-        b = np.dot(self.B, np.abs(y))
+        b = np.dot(self.B, y)
         A = 0
         for j in range(len(self.matrixes)):
             A += b[j] * self.matrixes[j][i]
@@ -318,7 +318,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
         res = 0
         for j in range(len(self.matrixes)):
             res += np.dot(x,
-                          np.dot(self.matrixes[j], x)) * self.B[j] * np.sign(y)
+                          np.dot(self.matrixes[j], x)) * self.B[j] * y
         return res
 
     def grad_y_stoh(self, x, y, i):
@@ -326,7 +326,7 @@ class MatrixFromYSaddleOracle(BaseSaddleOracle):
         res = 0
         for j in range(len(self.matrixes)):
             res += np.dot(x, np.dot(self.matrixes[j], x)
-                          ) * self.B[j][i] * np.sign(y[i])
+                          ) * self.B[j][i] * y[i]
         return res
 
     def metrics(self):

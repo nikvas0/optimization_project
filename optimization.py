@@ -3,7 +3,7 @@ import oracles
 import copy
 
 
-def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback, fCallback):
+def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCallback, fCallback, notnegative):
     """
     Solves optimization problem using accelerated metaalgorithm
     :param x_0: start point
@@ -11,6 +11,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
     :param g: oracle
     :param H: H param for metaalgorithm
     :param K: max iterations
+    :param notnegative:
     :param subproblemCallback:
     :param stopCallback:
     :param fCallback:
@@ -84,13 +85,22 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
         A_new = A + a_new
         x_ = (A * y / A_new) + (a_new * x / A_new)
 
+        if notnegative:
+            x_ = np.maximum(0, x_)
+
         y_new, in_iters = subproblemCallback(
             x_, SubproblemOracle(OmegaOracle(f, x_), g, x_, H))
+
+        if notnegative:
+            y_new = np.maximum(0, y_new)
 
         f_grad = f.grad(y_new)
         g_grad = g.grad(y_new)
         x = x - a_new * f_grad - a_new * g_grad
         y = y_new
+
+        if notnegative:
+            x = np.maximum(0, x)
 
         stats['iters'] = i + 1
         stats['gs'].append(np.linalg.norm(f_grad + g_grad))
@@ -105,7 +115,7 @@ def AcceleratedMetaalgorithmSolver(x_0, f, g, H, K, subproblemCallback, stopCall
     return y, stats
 
 
-def NesterovAcceleratedSolver(x_0, oracle, settings):
+def NesterovAcceleratedSolver(x_0, oracle, settings, notnegative):
     """
     Nesterov's Fast Coordinate Descent method
     Some default paramenters and lines ware taken from https://github.com/dmivilensky/accelerated-taylor-descent/blob/master/ms%20taylor%20contract.ipynb
@@ -151,6 +161,10 @@ def NesterovAcceleratedSolver(x_0, oracle, settings):
         x = y - grad * e / Li[i]
         v = v - (a * S_sm) * grad * e / (Li[i]**beta)
 
+        if notnegative:
+            x = np.maximum(0, x)
+            v = np.maximum(0, v)
+
         # stats['xs'].append(x)
 
         if stop_callback is not None and stop_callback(x):
@@ -171,7 +185,7 @@ class CompositeMaxOracle(oracles.BaseOracle):
     :param K: metaalgorithm iterations
     """
 
-    def __init__(self, y_0, f, G, h, H, K, subproblemCallback, stopCallback):
+    def __init__(self, y_0, f, G, h, H, K, subproblemCallback, stopCallback, notnegative):
         self.y_0 = y_0.copy()
         self.y_last = self.y_0
         self.f = f
@@ -181,6 +195,7 @@ class CompositeMaxOracle(oracles.BaseOracle):
         self.K = K
         self.subproblemCallback = subproblemCallback
         self.stopCallback = stopCallback
+        self.notnegative = notnegative
 
         self.f_calls = 0
         self.g_calls = 0
@@ -192,7 +207,9 @@ class CompositeMaxOracle(oracles.BaseOracle):
                 oracles.FixedXOracle(self.G, x), -1),
             self.H, self.K, self.subproblemCallback,
             self.stopCallback,
-            lambda h__, G_y__, y: self.f.func(x) + self.G.func(x, y) - self.h.func(y))
+            lambda h__, G_y__, y: self.f.func(
+                x) + self.G.func(x, y) - self.h.func(y),
+            self.notnegative)
         self.alg_stats.append(stats)
 
         # self.y_0 = self.y_last  # use y from prev run
@@ -214,7 +231,7 @@ class CompositeMaxOracle(oracles.BaseOracle):
         return {'func_calls': self.f_calls, 'grad_calls': self.g_calls, 'alg': self.alg_stats}
 
 
-def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_settings, in_nesterov_settings):
+def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_settings, in_nesterov_settings, notnegative_y=False):
     """
     Solves saddle optimization problem.
     :param x_0: start point
@@ -228,15 +245,16 @@ def SolveSaddle(x_0, y_0, f, G, h, out_settings, out_nesterov_settings, in_setti
     g = CompositeMaxOracle(
         y_0, f, G, h, in_settings['H'], in_settings['K'],
         lambda y_00, oracle: NesterovAcceleratedSolver(
-            y_00, oracle, in_nesterov_settings),
-        in_settings['stop_callback'])
+            y_00, oracle, in_nesterov_settings, notnegative_y),
+        in_settings['stop_callback'], notnegative_y)
 
     x, stats = AcceleratedMetaalgorithmSolver(
         x_0, f, g, out_settings['H'], out_settings['K'],
         lambda x_00, oracle: NesterovAcceleratedSolver(
-            x_00, oracle, out_nesterov_settings),
+            x_00, oracle, out_nesterov_settings, False),
         out_settings['stop_callback'],
-        lambda f__, g__, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last))
+        lambda f__, g__, x: f.func(x) + G.func(x, g.y_last) - h.func(g.y_last),
+        False)
 
     y = g.y_last  # copy.deepcopy(g).optimal_y(x)
     #print(f.func(x_0) + G.func(x_0, y_0) - h.func(y_0))
@@ -271,7 +289,8 @@ class CompositeSaddleOracle:
 def SolveSaddleCatalist(x_0, y_0, f, G, h,
                         catalist_settings,
                         out_settings, out_nesterov_settings,
-                        in_settings, in_nesterov_settings):
+                        in_settings, in_nesterov_settings,
+                        notnegative_y):
     """
     Solves saddle optimization problem using catalist.
     :param x_0: start point
@@ -293,7 +312,8 @@ def SolveSaddleCatalist(x_0, y_0, f, G, h,
     def inner_callback(x_00, oracle):
         x, y, stats = SolveSaddle(x_00, F.y_last, f, G, h,
                                   out_settings, out_nesterov_settings,
-                                  in_settings, in_nesterov_settings)
+                                  in_settings, in_nesterov_settings,
+                                  notnegative_y)
         F.y_last = y
         inner_stats.append(stats)
         return x, stats['out_stats']['iters']
@@ -301,6 +321,6 @@ def SolveSaddleCatalist(x_0, y_0, f, G, h,
     x, stats = AcceleratedMetaalgorithmSolver(
         x_0, zero, F, catalist_settings['H'], catalist_settings['K'],
         inner_callback, catalist_settings['stop_callback'],
-        lambda f_, g_, x: f.func(x) + G.func(x, F.y_last) - h.func(F.y_last))
+        lambda f_, g_, x: f.func(x) + G.func(x, F.y_last) - h.func(F.y_last), False)
 
     return x, F.y_last, {'catalist': stats, 'saddle': inner_stats}
